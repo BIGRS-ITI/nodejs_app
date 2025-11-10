@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: taskmanager
+data:
+  # Application Settings
+  NODE_ENV: "production"
+  PORT: "3000"
+  
+  # Database Configuration
+  DB_HOST: "mysql"
+  DB_PORT: "3306"
+  DB_USER: "taskuser"
+  DB_NAME: "taskmanager"
+  
+  # Redis Configuration
+  REDIS_HOST: "redis"
+  REDIS_PORT: "6379"
+  
+  # Cache Settings
+  CACHE_TTL: "300"
+  
+  # CORS Settings
+  FRONTEND_URL: "http://localhost:8080"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-config
+  namespace: taskmanager
+data:
+  MYSQL_DATABASE: "taskmanager"
+  MYSQL_USER: "taskuser"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: init-db-script
+  namespace: taskmanager
+data:
+  init.sql: |
+    USE taskmanager;
+    
+    CREATE TABLE IF NOT EXISTS tasks (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      title VARCHAR(255) NOT NULL,
+      description TEXT,
+      status ENUM('pending', 'in-progress', 'completed') DEFAULT 'pending',
+      priority ENUM('low', 'medium', 'high') DEFAULT 'medium',
+      due_date DATE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_status (status),
+      INDEX idx_priority (priority),
+      INDEX idx_due_date (due_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    
+    -- Insert sample data if table is empty
+    INSERT INTO tasks (title, description, status, priority, due_date)
+    SELECT * FROM (
+      SELECT 'Setup Development Environment' as title, 'Install Node.js, MySQL, and Redis' as description, 'completed' as status, 'high' as priority, CURDATE() as due_date
+      UNION ALL
+      SELECT 'Design Database Schema', 'Create ERD and table structures', 'completed', 'high', CURDATE()
+      UNION ALL
+      SELECT 'Build REST API', 'Implement CRUD endpoints with caching', 'in-progress', 'high', DATE_ADD(CURDATE(), INTERVAL 2 DAY)
+      UNION ALL
+      SELECT 'Create Modern UI', 'Design responsive interface with Tailwind CSS', 'in-progress', 'medium', DATE_ADD(CURDATE(), INTERVAL 3 DAY)
+      UNION ALL
+      SELECT 'Write Documentation', 'API docs and deployment guide', 'pending', 'medium', DATE_ADD(CURDATE(), INTERVAL 5 DAY)
+      UNION ALL
+      SELECT 'Deploy to AWS EKS', 'Deploy application using Kubernetes', 'pending', 'high', DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+    ) AS tmp
+    WHERE NOT EXISTS (SELECT 1 FROM tasks LIMIT 1);

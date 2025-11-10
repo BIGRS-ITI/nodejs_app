@@ -1,0 +1,212 @@
+# Kubernetes Deployment for Task Manager App
+# This file is ready to be used with your ArgoCD setup
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: taskmanager
+  labels:
+    app.kubernetes.io/name: taskmanager
+    app.kubernetes.io/managed-by: argocd
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: taskmanager-config
+  namespace: taskmanager
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  CACHE_TTL: "300"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: taskmanager-db-secret
+  namespace: taskmanager
+type: Opaque
+stringData:
+  DB_HOST: "your-rds-endpoint.us-east-1.rds.amazonaws.com"
+  DB_PORT: "3306"
+  DB_USER: "admin"
+  DB_PASSWORD: "your-password-here"  # Change this!
+  DB_NAME: "taskmanager"
+  REDIS_HOST: "your-elasticache-endpoint.cache.amazonaws.com"
+  REDIS_PORT: "6379"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: taskmanager
+  namespace: taskmanager
+  labels:
+    app: taskmanager
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: taskmanager
+  template:
+    metadata:
+      labels:
+        app: taskmanager
+        version: v1
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: taskmanager=YOUR_ECR_URL/bigrs-app
+        argocd-image-updater.argoproj.io/taskmanager.update-strategy: latest
+    spec:
+      containers:
+      - name: taskmanager
+        image: YOUR_ECR_URL/bigrs-app:latest  # Replace with your ECR URL
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3000
+          protocol: TCP
+        env:
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: taskmanager-config
+              key: NODE_ENV
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: taskmanager-config
+              key: PORT
+        - name: CACHE_TTL
+          valueFrom:
+            configMapKeyRef:
+              name: taskmanager-config
+              key: CACHE_TTL
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: DB_HOST
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: DB_PORT
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: DB_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: DB_PASSWORD
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: DB_NAME
+        - name: REDIS_HOST
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            secretKeyRef:
+              name: taskmanager-db-secret
+              key: REDIS_PORT
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 3000
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+      restartPolicy: Always
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: taskmanager-service
+  namespace: taskmanager
+  labels:
+    app: taskmanager
+spec:
+  type: LoadBalancer
+  selector:
+    app: taskmanager
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+  sessionAffinity: None
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: taskmanager-hpa
+  namespace: taskmanager
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: taskmanager
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Optional: Ingress (if using ALB Ingress Controller)
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: taskmanager-ingress
+#   namespace: taskmanager
+#   annotations:
+#     kubernetes.io/ingress.class: alb
+#     alb.ingress.kubernetes.io/scheme: internet-facing
+#     alb.ingress.kubernetes.io/target-type: ip
+# spec:
+#   rules:
+#   - http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: taskmanager-service
+#             port:
+#               number: 80

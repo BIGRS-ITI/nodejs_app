@@ -1,0 +1,20 @@
+# Frontend .dockerignore
+node_modules
+npm-debug.log
+.git
+.gitignore
+README.md
+.env
+.env.*
+docker-compose.yml
+Dockerfile*
+*.md
+logs
+config
+models
+controllers
+routes
+scripts
+server.js
+package.json
+package-lock.json
