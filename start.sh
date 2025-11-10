@@ -31,7 +31,7 @@ if command -v docker &> /dev/null && command -v docker-compose &> /dev/null; the
         
         echo ""
         echo "⏳ Waiting for MySQL to be ready..."
-        sleep 30
+        sleep 10
         
         echo "🔧 Initializing database..."
         docker-compose exec app npm run init-db
