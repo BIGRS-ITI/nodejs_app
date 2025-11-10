@@ -7,7 +7,7 @@ pipeline {
     
     environment {
         AWS_REGION = 'us-east-1'
-        ECR_REPOSITORY = 'bigrs-nodejs-app'
+        ECR_REPOSITORY = 'taskmanager-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
     
@@ -35,22 +35,44 @@ pipeline {
             }
         }
         
-        stage('Build Docker Image') {
-            steps {
-                container('docker') {
-                    script {
-                        echo "🔨 Building Docker image..."
-                        sh """
-                            # Wait for Docker daemon to be ready
-                            timeout 30 sh -c 'until docker info; do sleep 1; done' 2>/dev/null || true
-                            
-                            # Build the image
-                            docker build -t ${ECR_REPOSITORY}:${IMAGE_TAG} .
-                            docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REPOSITORY}:latest
-                            
-                            echo "✅ Image built successfully"
-                            docker images | grep ${ECR_REPOSITORY}
-                        """
+        stage('Build Docker Images') {
+            parallel {
+                stage('Build Backend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "🔨 Building Backend Docker image..."
+                                sh """
+                                    # Wait for Docker daemon to be ready
+                                    timeout 30 sh -c 'until docker info; do sleep 1; done' 2>/dev/null || true
+                                    
+                                    # Build the backend image with 'backend-' prefix
+                                    docker build -f Dockerfile.backend -t ${ECR_REPOSITORY}:backend-${IMAGE_TAG} .
+                                    docker tag ${ECR_REPOSITORY}:backend-${IMAGE_TAG} ${ECR_REPOSITORY}:backend-latest
+                                    
+                                    echo "✅ Backend image built successfully"
+                                    docker images | grep ${ECR_REPOSITORY}
+                                """
+                            }
+                        }
+                    }
+                }
+                
+                stage('Build Frontend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "🔨 Building Frontend Docker image..."
+                                sh """
+                                    # Build the frontend image with 'frontend-' prefix
+                                    docker build -f Dockerfile.frontend -t ${ECR_REPOSITORY}:frontend-${IMAGE_TAG} .
+                                    docker tag ${ECR_REPOSITORY}:frontend-${IMAGE_TAG} ${ECR_REPOSITORY}:frontend-latest
+                                    
+                                    echo "✅ Frontend image built successfully"
+                                    docker images | grep ${ECR_REPOSITORY}
+                                """
+                            }
+                        }
                     }
                 }
             }
@@ -79,30 +101,68 @@ pipeline {
         }
         
         stage('Tag Images') {
-            steps {
-                container('docker') {
-                    script {
-                        echo "🏷️ Tagging images for ECR..."
-                        sh """
-                            docker tag ${ECR_REPOSITORY}:${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
-                            docker tag ${ECR_REPOSITORY}:latest ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
-                            echo "✅ Images tagged successfully"
-                        """
+            parallel {
+                stage('Tag Backend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "🏷️ Tagging backend images for ECR..."
+                                sh """
+                                    docker tag ${ECR_REPOSITORY}:backend-${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-${IMAGE_TAG}
+                                    docker tag ${ECR_REPOSITORY}:backend-latest ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-latest
+                                    echo "✅ Backend images tagged successfully"
+                                """
+                            }
+                        }
+                    }
+                }
+                
+                stage('Tag Frontend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "🏷️ Tagging frontend images for ECR..."
+                                sh """
+                                    docker tag ${ECR_REPOSITORY}:frontend-${IMAGE_TAG} ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-${IMAGE_TAG}
+                                    docker tag ${ECR_REPOSITORY}:frontend-latest ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-latest
+                                    echo "✅ Frontend images tagged successfully"
+                                """
+                            }
+                        }
                     }
                 }
             }
         }
         
         stage('Push to ECR') {
-            steps {
-                container('docker') {
-                    script {
-                        echo "📦 Pushing images to ECR..."
-                        sh """
-                            docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
-                            docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest
-                            echo "✅ Images pushed successfully"
-                        """
+            parallel {
+                stage('Push Backend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "📦 Pushing backend images to ECR..."
+                                sh """
+                                    docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-${IMAGE_TAG}
+                                    docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-latest
+                                    echo "✅ Backend images pushed successfully"
+                                """
+                            }
+                        }
+                    }
+                }
+                
+                stage('Push Frontend') {
+                    steps {
+                        container('docker') {
+                            script {
+                                echo "📦 Pushing frontend images to ECR..."
+                                sh """
+                                    docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-${IMAGE_TAG}
+                                    docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-latest
+                                    echo "✅ Frontend images pushed successfully"
+                                """
+                            }
+                        }
                     }
                 }
             }
@@ -114,10 +174,18 @@ pipeline {
                     script {
                         echo "🧹 Cleaning up local images..."
                         sh """
-                            docker rmi ${ECR_REPOSITORY}:${IMAGE_TAG} || true
-                            docker rmi ${ECR_REPOSITORY}:latest || true
-                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG} || true
-                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest || true
+                            # Backend cleanup
+                            docker rmi ${ECR_REPOSITORY}:backend-${IMAGE_TAG} || true
+                            docker rmi ${ECR_REPOSITORY}:backend-latest || true
+                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-${IMAGE_TAG} || true
+                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:backend-latest || true
+                            
+                            # Frontend cleanup
+                            docker rmi ${ECR_REPOSITORY}:frontend-${IMAGE_TAG} || true
+                            docker rmi ${ECR_REPOSITORY}:frontend-latest || true
+                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-${IMAGE_TAG} || true
+                            docker rmi ${ECR_REGISTRY}/${ECR_REPOSITORY}:frontend-latest || true
+                            
                             echo "✅ Cleanup complete"
                         """
                     }
@@ -129,12 +197,21 @@ pipeline {
             steps {
                 container('aws-cli') {
                     script {
-                        echo "🔍 Verifying image in ECR..."
+                        echo "🔍 Verifying images in ECR..."
                         sh """
+                            echo "Backend Image:"
                             aws ecr describe-images \
                                 --repository-name ${ECR_REPOSITORY} \
                                 --region ${AWS_REGION} \
-                                --image-ids imageTag=${IMAGE_TAG} || echo "Image verification pending..."
+                                --image-ids imageTag=backend-${IMAGE_TAG} || echo "Backend verification pending..."
+                            
+                            echo ""
+                            echo "Frontend Image:"
+                            aws ecr describe-images \
+                                --repository-name ${ECR_REPOSITORY} \
+                                --region ${AWS_REGION} \
+                                --image-ids imageTag=frontend-${IMAGE_TAG} || echo "Frontend verification pending..."
+                            
                             echo "✅ Build ${IMAGE_TAG} completed successfully!"
                         """
                     }
@@ -147,14 +224,15 @@ pipeline {
         success {
             echo """
             ╔═══════════════════════════════════════════════════════════╗
-            ║                  ✅ PIPELINE SUCCESSFUL!                 ║
+            ║               ✅ DUAL-IMAGE PIPELINE SUCCESSFUL!         ║
             ╠═══════════════════════════════════════════════════════════╣
-            ║  Repository: ${ECR_REGISTRY}/${ECR_REPOSITORY}           
-            ║  Tag: ${IMAGE_TAG}                                        
-            ║  Latest: ${ECR_REGISTRY}/${ECR_REPOSITORY}:latest        
+            ║  Repository: ${ECR_REGISTRY}/${ECR_REPOSITORY}
+            ║  
+            ║  Backend:  backend-${IMAGE_TAG} & backend-latest
+            ║  Frontend: frontend-${IMAGE_TAG} & frontend-latest
             ╚═══════════════════════════════════════════════════════════╝
             
-            Next: Argo Image Updater will detect this new image and trigger deployment!
+            Next: Argo Image Updater will detect these new images and trigger deployments!
             """
         }
         failure {
