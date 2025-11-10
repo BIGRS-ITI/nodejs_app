@@ -15,11 +15,7 @@ services:
       - mysql_data:/var/lib/mysql
     networks:
       - taskmanager-network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
 
   # Redis Cache
   redis:
@@ -32,11 +28,7 @@ services:
       - redis_data:/data
     networks:
       - taskmanager-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+
 
   # RedisInsight GUI
   redisinsight:
@@ -84,12 +76,7 @@ services:
       - taskmanager-network
     volumes:
       - ./logs:/app/logs
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  
 
   # Nginx Frontend
   frontend:
@@ -105,12 +92,7 @@ services:
         condition: service_healthy
     networks:
       - taskmanager-network
-    healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/"]
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 5s
+
 
 networks:
   taskmanager-network:
