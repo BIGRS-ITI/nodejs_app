@@ -34,10 +34,10 @@ COPY --chown=nodejs:nodejs controllers ./controllers
 COPY --chown=nodejs:nodejs routes ./routes
 COPY --chown=nodejs:nodejs scripts ./scripts
 COPY --chown=nodejs:nodejs package*.json ./
-COPY --chown=nodejs:nodejs docker-entrypoint.sh ./
 
-# Make entrypoint script executable
-RUN chmod +x docker-entrypoint.sh
+# Copy entrypoint script and make it executable
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh && chown nodejs:nodejs docker-entrypoint.sh
 
 # Create logs directory
 RUN mkdir -p logs && chown -R nodejs:nodejs logs
@@ -54,4 +54,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
 
 # Start application with dumb-init and run migration first
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["./docker-entrypoint.sh"]
+CMD ["/bin/sh", "/app/docker-entrypoint.sh"]

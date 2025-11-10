@@ -38,6 +38,21 @@ services:
       timeout: 5s
       retries: 5
 
+  # RedisInsight GUI
+  redisinsight:
+    image: redis/redisinsight:latest
+    container_name: taskmanager-redisinsight
+    restart: unless-stopped
+    ports:
+      - "5540:5540"
+    networks:
+      - taskmanager-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    volumes:
+      - redisinsight_data:/data
+
   # Node.js Backend API
   backend:
     build:
@@ -86,7 +101,8 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - taskmanager-network
     healthcheck:
@@ -104,4 +120,6 @@ volumes:
   mysql_data:
     driver: local
   redis_data:
+    driver: local
+  redisinsight_data:
     driver: local

@@ -1,10 +1,10 @@
 #!/bin/sh
 set -e
 
-echo "🚀 Starting Task Manager Backend..."
+echo "ðŸš€ Starting Task Manager Backend..."
 
 # Wait for MySQL to be ready
-echo "⏳ Waiting for MySQL to be ready..."
+echo "â³ Waiting for MySQL to be ready..."
 max_attempts=30
 attempt=0
 
@@ -12,7 +12,7 @@ until node -e "const mysql = require('mysql2/promise'); mysql.createConnection({
 do
   attempt=$((attempt+1))
   if [ $attempt -eq $max_attempts ]; then
-    echo "❌ MySQL did not become ready in time"
+    echo "âŒ MySQL did not become ready in time"
     exit 1
   fi
   echo "Waiting for MySQL... (attempt $attempt/$max_attempts)"
@@ -20,17 +20,17 @@ do
 done
 
 # Run database initialization/migration
-echo "📦 Running database migration..."
+echo "ðŸ“¦ Running database migration..."
 node scripts/init-db.js
 
 # Check if migration was successful
 if [ $? -eq 0 ]; then
-  echo "✅ Database migration completed successfully"
+  echo "âœ… Database migration completed successfully"
 else
-  echo "❌ Database migration failed"
+  echo "âŒ Database migration failed"
   exit 1
 fi
 
 # Start the application
-echo "🎉 Starting Node.js server..."
+echo "ðŸŽ‰ Starting Node.js server..."
 exec node server.js
