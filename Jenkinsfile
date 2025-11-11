@@ -7,7 +7,7 @@ pipeline {
     
     environment {
         AWS_REGION = 'us-east-1'
-        ECR_REPOSITORY = 'taskmanager-app'
+        ECR_REPOSITORY = 'bigrs-nodejs-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
     }
     
