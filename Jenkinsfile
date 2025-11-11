@@ -2,7 +2,7 @@ pipeline {
     // Use centrally-defined pod template by label
     // Template is configured in Jenkins via JCasC (see helm-values/jenkins-values.yaml)
     agent {
-        label 'docker-build'
+        label 'jenkins-agent'
     }
     
     environment {
